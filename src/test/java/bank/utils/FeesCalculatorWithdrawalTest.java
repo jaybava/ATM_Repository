@@ -16,8 +16,9 @@ import org.junit.jupiter.params.provider.CsvFileSource;
  * cases, WD-001 to WD-980, listed in
  * src/test/resources/bank/utils/withdrawal-fee-cases.csv. Each row gives the
  * expected fee rate in percent, or INVALID when at least one input is outside
- * its valid range. The fee rules do not define the behaviour for invalid input;
- * like the transfer tests, we assume an IllegalArgumentException.
+ * its valid range, and the specification rule the case traces to. The fee rules
+ * do not define the behaviour for invalid input; like the transfer tests, we
+ * assume an IllegalArgumentException.
  */
 class FeesCalculatorWithdrawalTest {
 
@@ -27,17 +28,18 @@ class FeesCalculatorWithdrawalTest {
 
 	private final FeesCalculator calculator = new FeesCalculator();
 
-	@ParameterizedTest(name = "{0}: student={1}, day={2}, balance={3}, amount={4} -> {5}")
+	@ParameterizedTest(name = "{0}: student={1}, day={2}, balance={3}, amount={4} | Rule: {6}")
 	@CsvFileSource(resources = "/bank/utils/withdrawal-fee-cases.csv", numLinesToSkip = 1)
 	void withdrawalFee(String id, boolean student, int dayOfWeek, double balance, double amount,
-			String expectedRatePercent) {
+			String expectedRatePercent, String rule) {
+		String message = id + " | Rule: " + rule;
 		if (INVALID.equals(expectedRatePercent)) {
 			assertThrows(IllegalArgumentException.class,
-					() -> calculator.calculateWithdrawalFee(amount, balance, student, dayOfWeek), id);
+					() -> calculator.calculateWithdrawalFee(amount, balance, student, dayOfWeek), message);
 		} else {
 			double expected = amount * Double.parseDouble(expectedRatePercent) / 100.0;
 			assertEquals(expected, calculator.calculateWithdrawalFee(amount, balance, student, dayOfWeek),
-					DELTA, id);
+					DELTA, message);
 		}
 	}
 }

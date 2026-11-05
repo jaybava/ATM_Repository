@@ -64,7 +64,7 @@ Totals: **12 tests, 1 pass, 11 fail.**
 | DP-11 | true | 100.00 | -1,000.00 | invalid: balance < 0 (student) | `IllegalArgumentException` | no exception | **FAIL** |
 | DP-12 | false | 500.00 | -5,000.00 | invalid: balance < 0 (not a student) | `IllegalArgumentException` | no exception | **FAIL** |
 
-The JUnit display name of each case starts with its ID (e.g. `DP-05: student=false, amount=500.00, balance=5000.00 -> 0.8`), and the ID is the assertion message.
+Each row of the test's `@CsvSource` also names the **specification rule it traces to** (the "Class covered" column above, with its fee). The JUnit display name shows the ID, the inputs and the rule (e.g. `DP-05: student=false, amount=500.00, balance=5000.00 | Rule: Deposit: not a student; amount > $250; balance > $2500 -> 0.8%`), and the ID and rule are the assertion message.
 
 ### Fault localization
 
