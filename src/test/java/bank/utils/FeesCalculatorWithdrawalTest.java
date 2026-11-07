@@ -9,7 +9,7 @@ import org.junit.jupiter.params.provider.CsvFileSource;
 /**
  * Black box tests for {@link FeesCalculator#calculateWithdrawalFee}, derived with
  * Robust Worst Case Boundary Value Analysis from the withdrawal fee rules (the
- * analysis is in docs/sections/withdrawal.md).
+ * analysis is in docs/assignment1.md, sections 1.2 and 2.2).
  *
  * <p>The test cases are the Cartesian product of the robust boundary values of
  * every input: student (2) x day of week (7) x balance (10) x amount (7) = 980
