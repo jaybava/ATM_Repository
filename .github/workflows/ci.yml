@@ -1,0 +1,125 @@
+# CI workflow implementing the behaviour specified in TESTING.md.
+#
+#   lint  - Checkstyle against checkstyle.xml; always blocks merging.
+#   tests - requires exactly one phase label on PRs to main:
+#             phase:tests -> failures tolerated (faults are expected)
+#             phase:fix   -> the whole suite must pass
+#           pushes to dev run the suite with failures tolerated (informational).
+#   JUnit and JaCoCo reports are published as PR check/comments and never block.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  push:
+    branches: [dev]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up Java 11 (Temurin)
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '11'
+          cache: maven
+
+      - name: Run Checkstyle
+        run: mvn -B checkstyle:check
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+    steps:
+      - name: Determine test phase
+        id: phase
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "Push to dev: running the suite in informational mode (failures tolerated)."
+            echo "phase=dev" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          phase_labels=$(jq -r '[.[] | select(. == "phase:tests" or . == "phase:fix")] | join(",")' <<< "$LABELS")
+          count=$(jq '[.[] | select(. == "phase:tests" or . == "phase:fix")] | length' <<< "$LABELS")
+
+          if [ "$count" -ne 1 ]; then
+            echo "::error title=Phase label required::This PR must carry exactly one of the labels 'phase:tests' or 'phase:fix'. Phase labels found: [${phase_labels:-none}]. Add or remove labels so exactly one is applied; the workflow re-runs automatically."
+            exit 1
+          fi
+
+          echo "Phase label: $phase_labels"
+          echo "phase=${phase_labels#phase:}" >> "$GITHUB_OUTPUT"
+
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up Java 11 (Temurin)
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '11'
+          cache: maven
+
+      - name: Run test suite
+        env:
+          PHASE: ${{ steps.phase.outputs.phase }}
+        run: |
+          if [ "$PHASE" = "fix" ]; then
+            echo "phase:fix - the entire suite must pass."
+            mvn -B test
+          else
+            echo "Phase '$PHASE' - test failures are tolerated and reported."
+            mvn -B -Dmaven.test.failure.ignore=true test
+          fi
+
+      - name: Publish JUnit test report
+        if: ${{ !cancelled() && steps.phase.outcome == 'success' && hashFiles('target/surefire-reports/TEST-*.xml') != '' }}
+        continue-on-error: true
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          check_name: JUnit test report
+          files: target/surefire-reports/TEST-*.xml
+          comment_mode: always
+          fail_on: nothing
+
+      - name: Publish JaCoCo coverage comment
+        if: ${{ !cancelled() && github.event_name == 'pull_request' && steps.phase.outcome == 'success' && hashFiles('target/site/jacoco/jacoco.xml') != '' }}
+        continue-on-error: true
+        uses: madrapps/jacoco-report@v1.8.0
+        with:
+          paths: ${{ github.workspace }}/target/site/jacoco/jacoco.xml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: JaCoCo coverage report
+          update-comment: true
+          min-coverage-overall: 0
+          min-coverage-changed-files: 0
+
+      - name: Upload JaCoCo HTML report
+        if: ${{ !cancelled() && steps.phase.outcome == 'success' && hashFiles('target/site/jacoco/index.html') != '' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: jacoco-report
+          path: target/site/jacoco/
