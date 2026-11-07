@@ -9,7 +9,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 /**
  * Black box tests for {@link FeesCalculator#calculateDepositInterest}, derived with
  * Weak Robust Equivalence Class Analysis from the deposit fee rules (the analysis
- * is in docs/sections/deposit.md). The method is named "interest" in the code,
+ * is in docs/assignment1.md, sections 1.3 and 2.3). The method is named "interest" in the code,
  * but the specification defines the value it returns as the deposit fee.
  *
  * <p>DP-01 to DP-08 cover the eight valid equivalence classes (one representative
